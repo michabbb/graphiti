@@ -69,13 +69,19 @@ class OpenAIClient(BaseOpenAIClient):
         response_model: type[BaseModel],
     ):
         """Create a structured completion using OpenAI's beta parse API."""
-        return await self.client.beta.chat.completions.parse(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format=response_model,  # type: ignore
-        )
+        # Build parameters dict conditionally
+        params = {
+            'model': model,
+            'messages': messages,
+            'max_completion_tokens': max_tokens,
+            'response_format': response_model,  # type: ignore
+        }
+        
+        # Only add temperature if it's supported by the model
+        if temperature is not None:
+            params['temperature'] = temperature
+            
+        return await self.client.beta.chat.completions.parse(**params)
 
     async def _create_completion(
         self,
@@ -86,10 +92,16 @@ class OpenAIClient(BaseOpenAIClient):
         response_model: type[BaseModel] | None = None,
     ):
         """Create a regular completion with JSON format."""
-        return await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format={'type': 'json_object'},
-        )
+        # Build parameters dict conditionally
+        params = {
+            'model': model,
+            'messages': messages,
+            'max_completion_tokens': max_tokens,
+            'response_format': {'type': 'json_object'},
+        }
+        
+        # Only add temperature if it's supported by the model
+        if temperature is not None:
+            params['temperature'] = temperature
+            
+        return await self.client.chat.completions.create(**params)
