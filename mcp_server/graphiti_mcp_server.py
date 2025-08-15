@@ -841,7 +841,7 @@ async def search_memory_nodes(
 
     Args:
         query: The search query
-        group_ids: Optional list of group IDs to filter results
+        group_ids: Optional list of group IDs to filter results. If omitted, searches across all groups.
         max_nodes: Maximum number of nodes to return (default: 10)
         center_node_uuid: Optional UUID of a node to center the search around
         entity: Optional single entity type to filter results (permitted: "Preference", "Procedure")
@@ -852,10 +852,10 @@ async def search_memory_nodes(
         return ErrorResponse(error='Graphiti client not initialized')
 
     try:
-        # Use the provided group_ids or fall back to the default from config if none provided
-        effective_group_ids = (
-            group_ids if group_ids is not None else [config.group_id] if config.group_id else []
-        )
+        # If group_ids is an empty list, it means the user explicitly wants to search no groups.
+        # If group_ids is None, it means search all groups.
+        # The graphiti_client handles `group_ids=None` as "search all".
+        effective_group_ids = group_ids
 
         # Configure the search
         if center_node_uuid is not None:
@@ -918,7 +918,7 @@ async def search_memory_facts(
 
     Args:
         query: The search query
-        group_ids: Optional list of group IDs to filter results
+        group_ids: Optional list of group IDs to filter results. If omitted, searches across all groups.
         max_facts: Maximum number of facts to return (default: 10)
         center_node_uuid: Optional UUID of a node to center the search around
     """
@@ -932,10 +932,10 @@ async def search_memory_facts(
         if max_facts <= 0:
             return ErrorResponse(error='max_facts must be a positive integer')
 
-        # Use the provided group_ids or fall back to the default from config if none provided
-        effective_group_ids = (
-            group_ids if group_ids is not None else [config.group_id] if config.group_id else []
-        )
+        # If group_ids is an empty list, it means the user explicitly wants to search no groups.
+        # If group_ids is None, it means search all groups.
+        # The graphiti_client handles `group_ids=None` as "search all".
+        effective_group_ids = group_ids
 
         # We've already checked that graphiti_client is not None above
         assert graphiti_client is not None
