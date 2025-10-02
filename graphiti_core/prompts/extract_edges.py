@@ -94,6 +94,7 @@ Only extract facts that:
 - involve two DISTINCT ENTITIES from the ENTITIES list,
 - are clearly stated or unambiguously implied in the CURRENT MESSAGE,
     and can be represented as edges in a knowledge graph.
+- Facts should include entity names rather than pronouns whenever possible.
 - The FACT TYPES provide a list of the most important types of facts, make sure to extract facts of these types
 - The FACT TYPES are not an exhaustive list, extract all facts from the message even if they do not fit into one
     of the FACT TYPES
@@ -110,7 +111,7 @@ You may use information from the PREVIOUS MESSAGES only to disambiguate referenc
 2. Each fact must involve two **distinct** entities.
 3. Use a SCREAMING_SNAKE_CASE string as the `relation_type` (e.g., FOUNDED, WORKS_AT).
 4. Do not emit duplicate or semantically redundant facts.
-5. The `fact_text` should quote or closely paraphrase the original source sentence(s).
+5. The `fact_text` should closely paraphrase the original source sentence(s). Do not verbatim quote the original text.
 6. Use `REFERENCE_TIME` to resolve vague or relative temporal expressions (e.g., "last week").
 7. Do **not** hallucinate or infer temporal bounds from unrelated events.
 

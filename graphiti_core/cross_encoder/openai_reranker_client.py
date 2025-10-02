@@ -98,8 +98,8 @@ class OpenAIRerankerClient(CrossEncoderClient):
         try:
             responses = await semaphore_gather(
                 *[
-                    self._create_completion_with_conditional_temperature(
-                        model=DEFAULT_MODEL,
+                    self.client.chat.completions.create(
+                        model=self.config.model or DEFAULT_MODEL,
                         messages=openai_messages,
                         max_completion_tokens=1,
                         logit_bias={'6432': 1, '7983': 1},
