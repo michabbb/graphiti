@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.9
+# Development Dockerfile for MCP Server - nur Runtime Environment, Code wird gemountet
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -21,24 +21,24 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=never \
     MCP_SERVER_HOST="0.0.0.0" \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
 
 # Create non-root user
 RUN groupadd -r app && useradd -r -d /app -g app app
 
-# Copy the entire parent directory context to access graphiti_core
-COPY . /app/
+# Copy only dependency files for installation (not the code)
+COPY pyproject.toml uv.lock ./
 
-# Copy parent directory to access local graphiti_core
-COPY ../graphiti_core /app/graphiti_core
+# Create minimal directory structure that will be overridden by mounts
+RUN mkdir -p graphiti_core mcp_server
 
-# Install local graphiti_core in editable mode
+# Install dependencies only (code will be mounted, use --no-install-project)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev && \
-    uv pip install -e /app
+    uv sync --frozen --no-dev --no-install-project
 
 # Change ownership to app user
-RUN chown -Rv app:app /app
+RUN chown -R app:app /app
 
 # Switch to non-root user
 USER app
@@ -46,5 +46,5 @@ USER app
 # Expose port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uv", "run", "graphiti_mcp_server.py"]
+# Command to run with mounted code
+CMD ["uv", "run", "/app/mcp_server/graphiti_mcp_server.py", "--transport", "sse"]

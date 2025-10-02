@@ -58,6 +58,21 @@ class OpenAIRerankerClient(CrossEncoderClient):
         else:
             self.client = client
 
+    def _should_include_temperature(self, model: str) -> bool:
+        """Check if temperature parameter should be included for the given model.
+        
+        GPT-5 models do not support the temperature parameter at all.
+        """
+        return 'gpt-5' not in model.lower()
+
+    async def _create_completion_with_conditional_temperature(self, model: str, **kwargs):
+        """Create completion with temperature only if supported by the model."""
+        # Only add temperature if it's supported by the model
+        if self._should_include_temperature(model):
+            kwargs['temperature'] = 1  # Use temperature=1 for deterministic results when supported
+            
+        return await self.client.chat.completions.create(model=model, **kwargs)
+
     async def rank(self, query: str, passages: list[str]) -> list[tuple[str, float]]:
         openai_messages_list: Any = [
             [
@@ -86,8 +101,7 @@ class OpenAIRerankerClient(CrossEncoderClient):
                     self.client.chat.completions.create(
                         model=self.config.model or DEFAULT_MODEL,
                         messages=openai_messages,
-                        temperature=0,
-                        max_tokens=1,
+                        max_completion_tokens=1,
                         logit_bias={'6432': 1, '7983': 1},
                         logprobs=True,
                         top_logprobs=2,

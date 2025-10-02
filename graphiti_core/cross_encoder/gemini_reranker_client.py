@@ -108,7 +108,7 @@ Provide only a number between 0 and 100 (no explanation, just the number):"""
                         contents=prompt_messages,  # type: ignore
                         config=types.GenerateContentConfig(
                             system_instruction='You are an expert at rating passage relevance. Respond with only a number from 0-100.',
-                            temperature=0.0,
+                            temperature=1.0,  # Match GPT-5-mini constraints for consistency
                             max_output_tokens=3,
                         ),
                     )

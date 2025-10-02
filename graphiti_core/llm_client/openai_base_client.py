@@ -113,6 +113,13 @@ class BaseOpenAIClient(LLMClient):
         else:
             return self.model or DEFAULT_MODEL
 
+    def _should_include_temperature(self, model: str) -> bool:
+        """Check if temperature parameter should be included for the given model.
+        
+        GPT-5 models do not support the temperature parameter at all.
+        """
+        return 'gpt-5' not in model.lower()
+
     def _handle_structured_response(self, response: Any) -> dict[str, Any]:
         """Handle structured response parsing and validation."""
         response_object = response.output_text
@@ -140,12 +147,15 @@ class BaseOpenAIClient(LLMClient):
         openai_messages = self._convert_messages_to_openai_format(messages)
         model = self._get_model_for_size(model_size)
 
+        # Determine if temperature should be included for this model
+        temperature = self.temperature if self._should_include_temperature(model) else None
+
         try:
             if response_model:
                 response = await self._create_structured_completion(
                     model=model,
                     messages=openai_messages,
-                    temperature=self.temperature,
+                    temperature=temperature,
                     max_tokens=max_tokens or self.max_tokens,
                     response_model=response_model,
                     reasoning=self.reasoning,
@@ -156,7 +166,7 @@ class BaseOpenAIClient(LLMClient):
                 response = await self._create_completion(
                     model=model,
                     messages=openai_messages,
-                    temperature=self.temperature,
+                    temperature=temperature,
                     max_tokens=max_tokens or self.max_tokens,
                 )
                 return self._handle_json_response(response)

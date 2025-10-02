@@ -96,10 +96,16 @@ class OpenAIClient(BaseOpenAIClient):
         verbosity: str | None = None,
     ):
         """Create a regular completion with JSON format."""
-        return await self.client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format={'type': 'json_object'},
-        )
+        # Build parameters dict conditionally
+        params = {
+            'model': model,
+            'messages': messages,
+            'max_completion_tokens': max_tokens,
+            'response_format': {'type': 'json_object'},
+        }
+        
+        # Only add temperature if it's supported by the model
+        if temperature is not None:
+            params['temperature'] = temperature
+            
+        return await self.client.chat.completions.create(**params)
