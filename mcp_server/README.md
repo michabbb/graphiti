@@ -59,6 +59,75 @@ cd graphiti && pwd
 
 3. Point your MCP client to `http://localhost:8000/sse`
 
+## Authentication
+
+All HTTP and SSE endpoints exposed by the Graphiti MCP server require authentication. Clients can authenticate in one of the following ways:
+
+- **OAuth 2.0 authorization code + PKCE** — compatible with ChatGPT Developer Mode and other public OAuth clients.
+- **OAuth 2.0 client credentials** — recommended for trusted service-to-service integrations.
+- **Query token fallback** — for clients that cannot perform an OAuth flow. Provide a one-time or pre-shared token in the `nonce` query parameter (e.g. `https://localhost:8000/sse?nonce=sh4redtok3n`).
+
+### OAuth 2.0 authorization code with PKCE (ChatGPT Developer Mode)
+
+1. **Define sign-in accounts.**
+   - Set `MCP_SERVER_AUTH_USERS` to a comma-separated list of `email:password[:display_name]` pairs (for example `admin@example.com:supersecret:Graphiti Admin`).
+   - In development you can rely on the built-in demo account (`demo@example.com` / `demo-password`), which can be disabled via `MCP_SERVER_ALLOW_DEMO_USER=false`.
+
+2. **Register a client.**
+   ChatGPT uses OAuth Dynamic Client Registration. Call `/oauth/register` and request the `authorization_code` (and optionally `refresh_token`) grant with `token_endpoint_auth_method` set to `none`:
+
+   ```bash
+   curl -X POST http://localhost:8000/oauth/register \
+     -H 'Content-Type: application/json' \
+     -d '{
+           "client_name": "chatgpt-dev-mode",
+           "redirect_uris": ["https://chat.openai.com/aip/oauth/callback"],
+           "grant_types": ["authorization_code", "refresh_token"],
+           "token_endpoint_auth_method": "none"
+         }'
+   ```
+
+   The response returns a UUID `client_id`. No secret is issued for public clients.
+
+3. **Perform the flow.**
+   - ChatGPT discovers the OAuth metadata at `/.well-known/oauth-authorization-server`.
+   - When prompted with the hosted login page at `/oauth/authorize`, sign in with one of the configured accounts (or use the demo account if enabled).
+   - The server enforces PKCE (`S256`), exchanges authorization codes for access tokens at `/oauth/token`, and automatically rotates refresh tokens.
+
+4. **Use the access token.**
+   Include the bearer token in the `Authorization` header for every MCP HTTP or SSE request. Refresh tokens can be exchanged by POSTing to `/oauth/token` with `grant_type=refresh_token` when needed.
+
+### OAuth 2.0 client credentials
+
+The server exposes metadata for discovery at `/.well-known/oauth-authorization-server`. Confidential clients can dynamically register by POSTing to `/oauth/register` and requesting the `client_credentials` grant:
+
+```bash
+curl -X POST http://localhost:8000/oauth/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "client_name": "graphiti-client",
+        "redirect_uris": ["http://localhost"],
+        "grant_types": ["client_credentials"],
+        "token_endpoint_auth_method": "client_secret_basic"
+      }'
+```
+
+The response includes a `client_id` and `client_secret`. Use these credentials to request tokens from `/oauth/token` with the `client_credentials` grant using HTTP Basic auth or form parameters. Bearer tokens must be supplied in the `Authorization` header when calling all protected endpoints.
+
+### Query token fallback
+
+To support legacy or limited MCP clients, you can configure fallback tokens by setting the `MCP_SERVER_NONCE_TOKENS` environment variable to a comma-separated list of allowed values. When one of these tokens is presented via the `nonce` query parameter, OAuth authentication is not required for that request.
+
+Example:
+
+```bash
+export MCP_SERVER_NONCE_TOKENS="ShjDhieHfxxxxxx,AnotherToken"
+```
+
+With this configuration, a client can stream events without OAuth by calling `https://localhost:8000/sse?nonce=ShjDhieHfxxxxxx`.
+
+If no valid `nonce` value is provided, the client **must** obtain an OAuth access token.
+
 ## Installation
 
 ### Prerequisites
@@ -101,6 +170,13 @@ The server uses the following environment variables:
 - `AZURE_OPENAI_EMBEDDING_API_VERSION`: Optional Azure OpenAI API version
 - `AZURE_OPENAI_USE_MANAGED_IDENTITY`: Optional use Azure Managed Identities for authentication
 - `SEMAPHORE_LIMIT`: Episode processing concurrency. See [Concurrency and LLM Provider 429 Rate Limit Errors](#concurrency-and-llm-provider-429-rate-limit-errors)
+- `MCP_SERVER_SECRET_KEY`: Secret used to sign and validate OAuth access tokens (defaults to an insecure development value; override in production)
+- `MCP_SERVER_NONCE_TOKENS`: Comma-separated list of `nonce` tokens that are accepted for query-parameter authentication
+- `MCP_SERVER_AUTH_USERS`: Optional comma-separated list of OAuth usernames (`email:password[:display_name]`) that can approve authorization requests
+- `MCP_SERVER_ALLOW_DEMO_USER`: Set to `false` to disable the built-in demo OAuth account (defaults to `true`)
+- `MCP_SERVER_DEMO_USER_EMAIL`, `MCP_SERVER_DEMO_USER_PASSWORD`, `MCP_SERVER_DEMO_USER_NAME`: Override the credentials used for the demo OAuth account
+- `MCP_SERVER_AUTH_CODE_TTL`: Lifetime (in seconds) for authorization codes (default: `300`)
+- `MCP_SERVER_REFRESH_TOKEN_TTL`: Lifetime (in seconds) for issued refresh tokens (default: 7 days)
 
 You can set these variables in a `.env` file in the project directory.
 
